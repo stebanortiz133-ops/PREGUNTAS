@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIMULADOR DE EXAMEN: HISTORIA III</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;600;800&family=Source+Code+Pro:wght@500&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            /* TEMA: EXAMEN PROFESIONAL (Azul Acero, Blanco, Gris) */
+            --bg-app: #f4f6f8;
+            --bg-panel: #ffffff;
+            --primary: #0f172a; /* Azul noche */
+            --accent: #3b82f6;  /* Azul brillante */
+            --text-main: #334155;
+            --text-light: #64748b;
+            
+            /* ESTADOS */
+            --success: #10b981;
+            --error: #ef4444;
+            --warn: #f59e0b;
+            
+            /* UI */
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --radius: 8px;
+            --border: 1px solid #e2e8f0;
+        }
+
+        * { box-sizing: border-box; outline: none; user-select: none; }
+
+        body {
+            font-family: 'Public Sans', sans-serif;
+            background-color: var(--bg-app);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            margin: 0;
+        }
+
+        /* --- HEADER --- */
+        header {
+            height: 64px;
+            background: var(--primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            box-shadow: var(--shadow);
+            z-index: 100;
+        }
+
+        .exam-title {
+            font-weight: 800;
+            font-size: 1.1rem;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .exam-badge {
+            background: var(--accent);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+        }
+
+        .timer-box {
+            font-family: 'Source Code Pro', monospace;
+            background: rgba(255,255,255,0.1);
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .timer-box.warning { color: var(--warn); border: 1px solid var(--warn); }
+
+        /* --- LAYOUT --- */
+        .layout {
+            display: grid;
+            grid-template-columns: 260px 1fr;
+            height: calc(100vh - 64px);
+        }
+
+        /* --- SIDEBAR (Question Navigator) --- */
+        .sidebar {
+            background: var(--bg-panel);
+            border-right: var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .nav-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .q-node {
+            aspect-ratio: 1;
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-light);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .q-node:hover { background: #e2e8f0; }
+        .q-node.active { border-color: var(--primary); background: white; color: var(--primary); box-shadow: 0 0 0 2px var(--primary); }
+        .q-node.answered { background: var(--primary); color: white; border-color: var(--primary); }
+        .q-node.flagged { border-color: var(--warn); color: var(--warn); background: #fffbeb; }
+        .q-node.correct { background: var(--success); color: white; border-color: var(--success); }
+        .q-node.wrong { background: var(--error); color: white; border-color: var(--error); }
+
+        .sidebar-section {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: var(--text-light);
+            font-weight: 700;
+            margin-bottom: 10px;
+            margin-top: 20px;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 5px;
+        }
+
+        /* --- MAIN EXAM AREA --- */
+        .exam-area {
+            padding: 40px;
+            overflow-y: auto;
+            display: flex;
+            justify-content: center;
+        }
+
+        .paper {
+            background: white;
+            width: 100%;
+            max-width: 900px;
+            padding: 60px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            border: var(--border);
+            position: relative;
+            min-height: 600px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .q-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #f1f5f9;
+            padding-bottom: 20px;
+        }
+
+        .q-number { font-size: 1.2rem; font-weight: 800; color: var(--primary); }
+        .q-topic { font-size: 0.8rem; background: #f1f5f9; padding: 4px 12px; border-radius: 20px; color: var(--text-light); font-weight: 600; }
+
+        .q-text {
+            font-size: 1.15rem;
+            line-height: 1.6;
+            color: var(--text-main);
+            margin-bottom: 40px;
+            font-weight: 500;
+        }
+
+        .options-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .option-row {
+            display: flex;
+            align-items: flex-start;
+            padding: 16px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .option-row:hover:not(.disabled) { background: #f8fafc; border-color: var(--accent); }
+        
+        .option-row.selected {
+            background: #eff6ff;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 1px var(--accent);
+        }
+
+        .option-row.correct { background: #ecfdf5; border-color: var(--success); }
+        .option-row.wrong { background: #fef2f2; border-color: var(--error); }
+
+        .opt-radio {
+            min-width: 20px; height: 20px;
+            border-radius: 50%;
+            border: 2px solid #cbd5e1;
+            margin-right: 16px;
+            margin-top: 2px;
+            position: relative;
+        }
+        .selected .opt-radio { border-color: var(--accent); }
+        .selected .opt-radio::after {
+            content: ''; position: absolute; top: 3px; left: 3px; width: 10px; height: 10px;
+            background: var(--accent); border-radius: 50%;
+        }
+
+        .opt-content { font-size: 0.95rem; line-height: 1.5; color: var(--text-main); }
+
+        /* --- FOOTER CONTROLS --- */
+        .controls {
+            margin-top: auto;
+            padding-top: 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            border: 1px solid #cbd5e1;
+            background: white;
+            color: var(--text-main);
+            transition: all 0.2s;
+        }
+
+        .btn:hover:not(:disabled) { background: #f1f5f9; }
+        
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        .btn-primary:hover:not(:disabled) { background: #1e293b; }
+        
+        .btn-flag { color: var(--warn); border-color: var(--warn); }
+        .btn-flag:hover { background: #fffbeb; }
+
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* --- EXPLANATION BOX --- */
+        .explanation {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8fafc;
+            border-left: 4px solid var(--accent);
+            border-radius: 4px;
+            display: none;
+            animation: fadeIn 0.3s;
+        }
+        .explanation.ok { border-color: var(--success); background: #f0fdf4; }
+        .explanation.bad { border-color: var(--error); background: #fef2f2; }
+        
+        .exp-title { font-weight: 700; font-size: 0.9rem; margin-bottom: 8px; display: block; }
+        .exp-text { font-size: 0.9rem; color: var(--text-main); }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="exam-title">
+        <span class="exam-badge">EXAMEN FINAL</span>
+        HISTORIA Y TEORÍA III (Preguntas Filtradas)
+    </div>
+    <div class="timer-box" id="timer">
+        <span>⏱</span> 00:00:00
+    </div>
+</header>
+
+<div class="layout">
+    <nav class="sidebar">
+        <div class="sidebar-section">Prehispánico</div>
+        <div class="nav-grid" id="nav-pre"></div>
+        
+        <div class="sidebar-section">Colonial / Republicano</div>
+        <div class="nav-grid" id="nav-col"></div>
+        
+        <div class="sidebar-section">Moderno / Contemp.</div>
+        <div class="nav-grid" id="nav-mod"></div>
+        
+        <div class="sidebar-section">Normativa</div>
+        <div class="nav-grid" id="nav-nor"></div>
+
+        <div style="margin-top: auto; padding-top: 20px; text-align: center;">
+            <div style="font-size: 0.8rem; color: #64748b; margin-bottom: 5px;">Puntaje Actual</div>
+            <div style="font-size: 1.5rem; font-weight: 800; color: var(--primary);" id="score-disp">0/0</div>
+        </div>
+    </nav>
+
+    <main class="exam-area">
+        <div class="paper" id="paper">
+            <div style="text-align: center; padding: 40px;">
+                <h2>Instrucciones del Simulador</h2>
+                <p style="color: #64748b; margin-bottom: 30px;">
+                    Este simulador contiene <strong>únicamente</strong> las preguntas extraídas de los exámenes anteriores proporcionados.
+                    <br><br>
+                    • No hay límite de tiempo, pero se cronometra.<br>
+                    • Puedes marcar preguntas para revisar luego.<br>
+                    • La calificación es inmediata por pregunta.
+                </p>
+                <button class="btn btn-primary" onclick="EXAM.start()">COMENZAR EXAMEN</button>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script>
+/**
+ * BANCO DE PREGUNTAS REALES (FILTRADAS)
+ * Categorías: PRE (Prehispánico), COL (Colonial), MOD (Moderno), NOR (Normativa)
+ */
+const QUESTIONS = [
+    // --- PREHISPÁNICO ---
+    {
+        id: 1, type: 'PRE',
+        q: "Ubique los nombres de las siguientes obras arquitectónicas (Prehispánicas):",
+        opts: [
+            "Machu Picchu, Templo del Sol, Coricancha.",
+            "Palacio de Palenque, Plataforma de Venus, Altares.",
+            "Pirámide del Sol, Calzada de los Muertos, Ciudadela.",
+            "Ingapirca, Templo de la Luna, Pumapungo."
+        ],
+        correct: 1,
+        why: "Pregunta visual del examen (PT 2). La imagen mostrada correspondía a la arquitectura Maya de Palenque y Chichén Itzá (Plataforma Venus)."
+    },
+    {
+        id: 2, type: 'PRE',
+        q: "Enlace según corresponda, sobre las viviendas de los pueblos antiguos (Cañari vs Quechua/Navajo):",
+        opts: [
+            "Cañari: Rectangular de adobe.",
+            "Cañari: Forma circular o elíptica, cimientos de piedra, muro de bahareque.",
+            "Cañari: Tipi de pieles.",
+            "Cañari: Iglú de hielo."
+        ],
+        correct: 1,
+        why: "Literal de examen. La vivienda Cañari se distingue por su planta redondeada y el uso de piedra en la base con bahareque."
+    },
+    {
+        id: 3, type: 'PRE',
+        q: "El calendario azteca y el maya medían el tiempo de la misma manera y tenían la misma duración anual.",
+        opts: ["Verdadero", "Falso"],
+        correct: 1,
+        why: "Respuesta de examen: Falso. Aunque compartían conceptos (ciclos), sus sistemas de medición y duración de ciclos largos eran distintos."
+    },
+    
+    // --- COLONIAL / REPUBLICANO ---
+    {
+        id: 4, type: 'COL',
+        q: "¿Cuál de estos edificios es un ejemplo representativo de la arquitectura colonial en Cuenca (modesta/popular)?",
+        opts: [
+            "Catedral de la Inmaculada Concepción.",
+            "Complejo Pumapungo.",
+            "Edificio del Banco Central.",
+            "Casa de Las Posadas."
+        ],
+        correct: 3,
+        why: "Pregunta PT 2. La Casa de las Posadas es el referente de la vivienda colonial sencilla que sobrevive."
+    },
+    {
+        id: 5, type: 'COL',
+        q: "Una según corresponda respecto a los estilos arquitectónicos coloniales:",
+        opts: [
+            "Exuberancia ornamental, curvas, detalles esculpidos -> Neoclásico.",
+            "Exuberancia ornamental, curvas, detalles esculpidos -> Barroco.",
+            "Exuberancia ornamental, curvas, detalles esculpidos -> Vernáculo.",
+            "Exuberancia ornamental, curvas, detalles esculpidos -> Racionalista."
+        ],
+        correct: 1,
+        why: "Definición literal del examen para el estilo Barroco."
+    },
+    {
+        id: 6, type: 'COL',
+        q: "Luego de la llegada de los españoles, se mantuvo la configuración típica de las urbes... ¿Cuál NO es correcta?",
+        opts: [
+            "Incorporación de las Reformas Toledanas.",
+            "Cambios en el urbanismo urbano y rural.",
+            "Empleo de un plano ideal (damero).",
+            "Tipo de ciudad con plantas concéntricas que sirvió de modelo para las demás fundaciones."
+        ],
+        correct: 3,
+        why: "El modelo español NO era de plantas concéntricas, era de cuadrícula (damero) ortogonal."
+    },
+    {
+        id: 7, type: 'COL',
+        q: "Una según corresponda los estilos arquitectónicos republicanos en Cuenca:",
+        opts: [
+            "Simetría, columnas clásicas, estilo simple y sencillo -> Neoclásico.",
+            "Verticalidad, arcos apuntados, bóveda de crucería -> Neoclásico.",
+            "Combinación de varios estilos -> Barroco.",
+            "Paredes blancas -> Gótico."
+        ],
+        correct: 0,
+        why: "Pregunta PT 3 (Unir). El Neoclásico se define por el retorno al orden, la simetría y lo clásico."
+    },
+
+    // --- MODERNO / CONTEMPORÁNEO ---
+    {
+        id: 8, type: 'MOD',
+        q: "Escoja la respuesta correcta, ¿cuál fue el periodo en el que se establecieron 3 gobiernos democráticamente elegidos: Galo Plaza, Velasco Ibarra y Camilo Ponce?",
+        opts: [
+            "1940 - 1950",
+            "1948 - 1960",
+            "1955 - 1960",
+            "1980 - 1990"
+        ],
+        correct: 1,
+        why: "Periodo de estabilidad política clave para el desarrollo de la arquitectura moderna en Ecuador."
+    },
+    {
+        id: 9, type: 'MOD',
+        q: "¿Quién es uno de los arquitectos más representativos de la arquitectura postmodernidad historicista?",
+        opts: [
+            "Frank Gehry",
+            "Le Corbusier",
+            "Ludwig Mies van der Rohe",
+            "Robert Venturi"
+        ],
+        correct: 3,
+        why: "Robert Venturi es el padre teórico de la postmodernidad ('Complejidad y Contradicción')."
+    },
+    {
+        id: 10, type: 'MOD',
+        q: "De acuerdo a los rasgos que destaca en la arquitectura postmoderna, uno de ellos es 'Recurso de arquitectura moderna', escoja la respuesta correcta:",
+        opts: [
+            "Edificaciones que muestran importancia del símbolo.",
+            "Aspectos que rescatan importantes aportes de la arquitectura moderna (tecnología) pero vinculados a la historia/sociedad.",
+            "Copia fiel del pasado.",
+            "Rechazo total a la tecnología."
+        ],
+        correct: 1,
+        why: "La postmodernidad no rechaza la técnica moderna, la usa para fines expresivos/históricos (Doble Codificación)."
+    },
+    {
+        id: 11, type: 'MOD',
+        q: "Escoja la respuesta correcta, la arquitectura postmoderna surge en el:",
+        opts: ["Siglo XIX", "Siglo XX (Segunda Mitad)", "Siglo XXI", "Siglo XVIII"],
+        correct: 1,
+        why: "Surge como crítica al Movimiento Moderno a partir de los años 60-70."
+    },
+    {
+        id: 12, type: 'MOD',
+        q: "Describa 2 elementos representativos de la arquitectura moderna en la ciudad de Cuenca, a más de los ventanales de vidrio:",
+        opts: [
+            "Arcos de medio punto y Tejas.",
+            "Cubiertas planas (losas) y Marquesinas / Marroquinas (persianas de madera).",
+            "Columnas salomónicas y Adobe.",
+            "Paja y Bahareque."
+        ],
+        correct: 1,
+        why: "La losa plana y las protecciones solares (marquesinas/marroquinas) definen la estética moderna local."
+    },
+    {
+        id: 13, type: 'MOD',
+        q: "El movimiento moderno en Cuenca: La madera es el material más utilizado para los detalles interiores (muebles, paneles) en combinación con el vidrio.",
+        opts: ["Verdadero", "Falso"],
+        correct: 0,
+        why: "Verdadero. La madera dejó de ser estructural (exteriores) y pasó a definir la calidad espacial interior."
+    },
+
+    // --- NORMATIVA ---
+    {
+        id: 14, type: 'NOR',
+        q: "Según la ordenanza, las edificaciones que se categorizan 'SIN VALOR ESPECIAL' se determinan por:",
+        opts: [
+            "Su presencia constituye una verdadera afección a la coherencia morfológica (Valor Negativo).",
+            "Su presencia carece de significación particular... A pesar de no ser expresión de la tradición... no ejercen acción desconfiguradora. Su integración es admisible.",
+            "Son monumentos nacionales.",
+            "Deben ser demolidas obligatoriamente."
+        ],
+        correct: 1,
+        why: "Texto literal de la Ordenanza. Son edificios neutros que no molestan al conjunto patrimonial."
+    },
+    {
+        id: 15, type: 'NOR',
+        q: "La rehabilitación arquitectónica busca recuperar la habitabilidad del bien, respetando su forma y entorno.",
+        opts: ["Verdadero", "Falso"],
+        correct: 0,
+        why: "Verdadero. A diferencia de la restauración pura, la rehabilitación busca un uso activo y habitable."
+    },
+    {
+        id: 16, type: 'NOR',
+        q: "¿Qué es un 'Tramo Ortorectificado'?",
+        opts: [
+            "Una calle recta.",
+            "Técnica de levantamiento: Imagen de fachada corregida geométricamente para eliminar distorsión y tomar medidas.",
+            "Un tipo de muro.",
+            "Un error de construcción."
+        ],
+        correct: 1,
+        why: "Definición técnica de conservación. Es la 'foto plana' y medible de una fachada."
+    }
+];
+
+const EXAM = {
+    idx: 0,
+    answers: {}, // { 0: 1, 1: 0 ... }
+    flags: [],
+    timer: 0,
+    interval: null,
+
+    init() {
+        this.renderNav();
+    },
+
+    start() {
+        this.idx = 0;
+        this.answers = {};
+        this.flags = [];
+        this.timer = 0;
+        this.renderQuestion();
+        this.startTimer();
+    },
+
+    startTimer() {
+        if(this.interval) clearInterval(this.interval);
+        this.interval = setInterval(() => {
+            this.timer++;
+            const h = Math.floor(this.timer / 3600).toString().padStart(2,'0');
+            const m = Math.floor((this.timer % 3600) / 60).toString().padStart(2,'0');
+            const s = (this.timer % 60).toString().padStart(2,'0');
+            document.getElementById('timer').innerHTML = `<span>⏱</span> ${h}:${m}:${s}`;
+        }, 1000);
+    },
+
+    renderNav() {
+        // Clear containers
+        ['nav-pre', 'nav-col', 'nav-mod', 'nav-nor'].forEach(id => document.getElementById(id).innerHTML = '');
+
+        QUESTIONS.forEach((q, i) => {
+            const btn = document.createElement('div');
+            btn.className = `q-node`;
+            btn.innerText = i + 1;
+            btn.onclick = () => EXAM.goto(i);
+            btn.id = `nav-btn-${i}`;
+            
+            // Assign to container
+            let container = 'nav-pre';
+            if(q.type === 'COL') container = 'nav-col';
+            if(q.type === 'MOD') container = 'nav-mod';
+            if(q.type === 'NOR') container = 'nav-nor';
+            
+            document.getElementById(container).appendChild(btn);
+        });
+    },
+
+    goto(i) {
+        this.idx = i;
+        this.renderQuestion();
+    },
+
+    renderQuestion() {
+        const q = QUESTIONS[this.idx];
+        const paper = document.getElementById('paper');
+        const hasAns = this.answers[this.idx] !== undefined;
+        const isFlagged = this.flags.includes(this.idx);
+
+        // Update Nav UI
+        document.querySelectorAll('.q-node').forEach(n => n.classList.remove('active'));
+        document.getElementById(`nav-btn-${this.idx}`).classList.add('active');
+
+        paper.innerHTML = `
+            <div class="q-header">
+                <span class="q-number">Pregunta ${this.idx + 1}</span>
+                <span class="q-topic">${q.type}</span>
+            </div>
+            
+            <div class="q-text">${q.q}</div>
+            
+            <div class="options-container">
+                ${q.opts.map((opt, k) => `
+                    <div class="option-row" id="opt-${k}" onclick="EXAM.select(${k})">
+                        <div class="opt-radio"></div>
+                        <div class="opt-content">${opt}</div>
+                    </div>
+                `).join('')}
+            </div>
+
+            <div id="explanation" class="explanation"></div>
+
+            <div class="controls">
+                <button class="btn" onclick="EXAM.prev()" ${this.idx===0?'disabled':''}>Anterior</button>
+                <button class="btn btn-flag" onclick="EXAM.toggleFlag()">
+                    ${isFlagged ? '★ Desmarcar' : '☆ Revisar Luego'}
+                </button>
+                <button class="btn btn-primary" onclick="EXAM.next()" ${this.idx===QUESTIONS.length-1?'disabled':''}>Siguiente</button>
+            </div>
+        `;
+
+        if (hasAns) this.restore(this.answers[this.idx], q);
+    },
+
+    select(k) {
+        if (this.answers[this.idx] !== undefined) return; // Locked if answered
+        
+        const q = QUESTIONS[this.idx];
+        this.answers[this.idx] = k;
+        
+        // Update Nav Status
+        const navBtn = document.getElementById(`nav-btn-${this.idx}`);
+        navBtn.classList.remove('flagged'); // Answer overrides flag
+        if(k === q.correct) navBtn.classList.add('correct');
+        else navBtn.classList.add('wrong');
+
+        this.updateScore();
+        this.restore(k, q);
+    },
+
+    restore(k, q) {
+        const expl = document.getElementById('explanation');
+        
+        // Visuals
+        document.querySelectorAll('.option-row').forEach((row, i) => {
+            row.classList.remove('selected');
+            row.classList.add('disabled'); // Lock
+            row.style.pointerEvents = 'none';
+            
+            if(i === q.correct) row.classList.add('correct');
+            else if(i === k) row.classList.add('wrong');
+        });
+
+        // Show selected styling
+        // Note: Logic above handles colors. 'selected' is for hover state mainly.
+
+        // Explanation
+        const isOk = k === q.correct;
+        expl.className = `explanation ${isOk ? 'ok' : 'bad'}`;
+        expl.style.display = 'block';
+        expl.innerHTML = `
+            <span class="exp-title">${isOk ? 'RESPUESTA CORRECTA' : 'RESPUESTA INCORRECTA'}</span>
+            <div class="exp-text">${q.why}</div>
+        `;
+    },
+
+    toggleFlag() {
+        if(this.answers[this.idx] !== undefined) return; // Can't flag if answered
+        
+        const i = this.flags.indexOf(this.idx);
+        const btn = document.getElementById(`nav-btn-${this.idx}`);
+        
+        if (i > -1) {
+            this.flags.splice(i, 1);
+            btn.classList.remove('flagged');
+            this.renderQuestion(); // Re-render button text
+        } else {
+            this.flags.push(this.idx);
+            btn.classList.add('flagged');
+            this.renderQuestion();
+        }
+    },
+
+    next() {
+        if(this.idx < QUESTIONS.length - 1) EXAM.goto(this.idx + 1);
+    },
+
+    prev() {
+        if(this.idx > 0) EXAM.goto(this.idx - 1);
+    },
+
+    updateScore() {
+        const answered = Object.keys(this.answers).length;
+        let correct = 0;
+        for(const [idx, ans] of Object.entries(this.answers)) {
+            if(QUESTIONS[idx].correct === ans) correct++;
+        }
+        document.getElementById('score-disp').innerText = `${correct} / ${QUESTIONS.length}`;
+    }
+};
+
+EXAM.init();
+</script>
+</body>
+</html>
